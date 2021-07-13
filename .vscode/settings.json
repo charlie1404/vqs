@@ -1,0 +1,10 @@
+{
+  "editor.formatOnSave": true,
+  "[go]": {
+    "editor.defaultFormatter": "golang.go"
+  },
+  "workbench.editorAssociations": {
+    "*.mmap": "hexEditor.hexedit",
+    "*.queue": "hexEditor.hexedit"
+  }
+}

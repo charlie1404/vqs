@@ -1,0 +1,11 @@
+{
+  "restartable": "rs",
+  "signal": "SIGINT",
+  "ignore": [".git", "node_modules/"],
+  "exec": "go run main.go",
+  "watch": ["pkg/"],
+  "env": {
+    "TMPDIR": "/Users/shailendragupta/Desktop/workspace2/vqueue/tmp"
+  },
+  "ext": "go"
+}
