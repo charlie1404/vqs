@@ -1,0 +1,16 @@
+{
+  "restartable": "rs",
+  "signal": "SIGINT",
+  "ignore": [
+    ".git",
+    "node_modules/"
+  ],
+  "exec": "go run main.go server || exit 1",
+  "watch": [
+    "pkg/"
+  ],
+  "env": {
+    "TMPDIR": "./tmp"
+  },
+  "ext": "go"
+}
