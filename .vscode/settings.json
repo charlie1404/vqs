@@ -9,6 +9,7 @@
   "[markdown]": {
     "editor.wordWrap": "off"
   },
+  "editor.defaultFormatter": "golang.go",
   "prettier.requireConfig": false,
   "prettier.printWidth": 100,
   "workbench.editorAssociations": {

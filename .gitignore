@@ -15,8 +15,8 @@
 # vendor/
 .data
 
-tmp
-build
+tmp/
+bin/
 ignore/
 node_modules/
 data/

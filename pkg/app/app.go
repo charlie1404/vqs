@@ -3,64 +3,78 @@ package app
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
+	"sync"
 
-	"github.com/charlie1404/vqueue/pkg/api"
+	"github.com/charlie1404/vqs/pkg/api"
+	"github.com/charlie1404/vqs/pkg/o11y/logs"
+	"github.com/charlie1404/vqs/pkg/o11y/metrics"
 )
 
+func clearScreen() {
+	// https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
+	fmt.Printf("\x1B[H\x1B[2J\x1B[3J")
+}
+
 func ensureDataFolderExist() error {
-	dirName := "./data"
+	logs.Logger.Info().Msg("checking data dir")
 
-	log.Println("checking data dir")
+	var dirName string = "data"
+	var folderMode os.FileMode = 0700
 
-	createErr := os.Mkdir(dirName, 0755)
+	info, err := os.Stat(dirName)
 
-	if createErr != nil {
-		if !os.IsExist(createErr) {
-			log.Printf("error creating data dir: %+v\n", createErr)
-			return createErr
+	if os.IsNotExist(err) {
+		logs.Logger.Info().Msg("data dir does not exist, creating one")
+		if err := os.Mkdir(dirName, folderMode); err != nil {
+			logs.Logger.Error().Err(err).Msg("")
+			return err
 		}
-
-		info, statErr := os.Stat(dirName)
-		if statErr != nil {
-			log.Printf("error getting stats of data dir: %+v\n", statErr)
-			return statErr
-		}
-
-		if !info.IsDir() {
-			log.Println("path exists but is not a directory")
-			return errors.New("path exists but is not a directory")
-		}
-
-		log.Printf("data dir already exist\n")
-
-		modeErr := os.Chmod(dirName, 0755)
-
-		if modeErr != nil {
-			log.Printf("data dir not writeable\n")
-			return modeErr
-		}
+		logs.Logger.Info().Msg("created data dir")
+		return nil
 	}
 
-	log.Println("created data dir")
+	if !info.IsDir() {
+		return errors.New("data dir path exists but is not a directory")
+	}
+
+	if info.Mode() != folderMode {
+		if err := os.Chmod(dirName, folderMode); err != nil {
+			logs.Logger.Error().Err(err).Msg("error setting data dir permissions")
+			return errors.New("error setting data dir permissions")
+		}
+	}
+	logs.Logger.Info().Msg("data dir exists")
 	return nil
 }
 
 func New() {
-	// https://gist.github.com/fnky/458719343aabd01cfb17a3a4f7296797
-	fmt.Printf("\x1B[H\x1B[2J\x1B[3J")
-
-	log.SetOutput(os.Stdout)
+	clearScreen()
+	logs.InitLogger()
 
 	err := ensureDataFolderExist()
-
 	if err != nil {
-		log.Fatalln(err)
+		logs.Logger.Fatal().Err(err).Msg("Failed to create data folder")
 	}
 
-	log.Println("starting api server")
+	var wg sync.WaitGroup
 
-	apiApp := api.New()
-	apiApp.StartServer()
+	wg.Add(1)
+	go func() {
+		metrics := metrics.New()
+		metrics.StartServer()
+		metrics.SetupInterruptListener()
+		wg.Done()
+	}()
+
+	wg.Add(1)
+	go func() {
+		apiApp := api.New()
+		apiApp.StartServer()
+		apiApp.SetupInterruptListener()
+		apiApp.CloseQueues()
+		wg.Done()
+	}()
+
+	wg.Wait()
 }

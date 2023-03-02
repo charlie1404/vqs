@@ -1,7 +1,7 @@
 package main
 
-import "github.com/charlie1404/vqueue/cmd"
+import "github.com/charlie1404/vqs/pkg/app"
 
 func main() {
-	cmd.Execute()
+	app.New()
 }

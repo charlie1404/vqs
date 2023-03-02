@@ -1,7 +1,6 @@
 package api
 
 import (
-	"github.com/charlie1404/vqueue/pkg/storage"
 	"github.com/go-playground/validator/v10"
 )
 
@@ -9,9 +8,8 @@ type ApiValidator struct {
 	*validator.Validate
 }
 
-func (v *ApiValidator) validateCreateQueueInput(ip *storage.CreateQueueInput) error {
-	vv := validator.New()
-	err := vv.Struct(ip)
+func (v *ApiValidator) validateCreateQueueInput(ip *CreateQueueInput) error {
+	err := v.Struct(ip)
 
 	if err != nil {
 		return err

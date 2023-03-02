@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "@aws-sdk/client-sqs": "^3.215.0",
-    "nodemon": "^2.0.20"
+    "@aws-sdk/client-sqs": "^3.321.1",
+    "nodemon": "^2.0.22"
   }
 }
