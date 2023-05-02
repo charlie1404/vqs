@@ -3,11 +3,11 @@ package api
 import (
 	"encoding/xml"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"unicode/utf8"
 
+	"github.com/charlie1404/vqs/pkg/o11y/logs"
 	"github.com/charlie1404/vqs/pkg/storage"
 	"github.com/charlie1404/vqs/pkg/utils"
 )
@@ -21,9 +21,9 @@ type QueueAttributes struct {
 }
 
 type CreateQueueInput struct {
-	QueueName  string            `validate:"required,min=5,max=50"`
-	Attributes QueueAttributes   `validate:"required"`
-	Tags       map[string]string ``
+	QueueName  string          `validate:"required,min=5,max=50"`
+	Attributes QueueAttributes `validate:"required"`
+	Tags       *[][2]string    ``
 }
 
 func parseCreateQueueInput(form url.Values) *CreateQueueInput {
@@ -58,10 +58,10 @@ func parseCreateQueueInput(form url.Values) *CreateQueueInput {
 
 	// Tags Limitations
 	// - Tags after 50 will be discarded
-	// - Max size of tag storage 16350
+	// - Max size of tag storage is meta file size - meta header
 	// - MaxKeyLength is 128 in UTF-8. The tag Key must not be empty or null.
 	// - MaximumTagValueLength is 256 in UTF-8. The tag Value may be empty or null.
-	tags := make(map[string]string)
+	tags := [][2]string{}
 	tagsSize := 0
 	for i := 1; i <= 50; i++ {
 		tagName := utils.GetFormValueString(form, fmt.Sprintf("Tag.%d.Key", i))
@@ -74,12 +74,12 @@ func parseCreateQueueInput(form url.Values) *CreateQueueInput {
 			continue
 		}
 
-		maxSize := storage.GetMaxHeaderTagsSize()
-		if tagsSize += len(tagName) + len(tagValue) + 2; tagsSize > maxSize {
+		maxSize := int(storage.META_FILE_SIZE - storage.META_FILE_META_DATA_SIZE)
+		if tagsSize += len(tagName) + len(tagValue) + 4; tagsSize > maxSize {
 			break
 		}
 
-		tags[tagName] = tagValue
+		tags = append(tags, [2]string{tagName, tagValue})
 	}
 
 	createQueueInput := CreateQueueInput{
@@ -91,7 +91,7 @@ func parseCreateQueueInput(form url.Values) *CreateQueueInput {
 			ReceiveMessageWaitTimeSeconds: uint16(receiveMessageWaitTimeSeconds),
 			VisibilityTimeout:             uint16(visibilityTimeout),
 		},
-		Tags: tags,
+		Tags: &tags,
 	}
 
 	return &createQueueInput
@@ -108,16 +108,8 @@ func (appCtx *AppContext) CreateQueue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := appCtx.queues.CreateQueue(
-		ip.QueueName,
-		ip.Attributes.DelaySeconds,
-		ip.Attributes.MaximumMessageSize,
-		ip.Attributes.MessageRetentionPeriod,
-		ip.Attributes.ReceiveMessageWaitTimeSeconds,
-		ip.Attributes.VisibilityTimeout,
-		&ip.Tags,
-	); err != nil {
-		log.Println(err)
+	if _, err := appCtx.queues.CreateQueue(ip.QueueName, ip.Attributes.DelaySeconds, ip.Attributes.MaximumMessageSize, ip.Attributes.MessageRetentionPeriod, ip.Attributes.ReceiveMessageWaitTimeSeconds, ip.Attributes.VisibilityTimeout, ip.Tags); err != nil {
+		logs.Logger.Error().Err(err).Msg("CreateQueue")
 		resp := toXMLErrorResponse("InternalServerError", "Todo return better errors", "")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(resp)

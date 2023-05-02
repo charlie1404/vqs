@@ -5,7 +5,7 @@ import (
 	"path"
 	"sync"
 
-	app_errors "github.com/charlie1404/vqs/pkg/app_errors"
+	"github.com/charlie1404/vqs/pkg/app_errors"
 	"github.com/charlie1404/vqs/pkg/o11y/logs"
 )
 
@@ -14,7 +14,7 @@ type Queues struct {
 	sync.Mutex
 }
 
-func (qs *Queues) CreateQueue(name string, delaySeconds uint16, maxMsgSize uint32, messageRetentionPeriod uint32, receiveMessageWaitTime uint16, defaultVisiblityTimeout uint16, tags *map[string]string) (*Queue, error) {
+func (qs *Queues) CreateQueue(name string, delaySeconds uint16, maxMsgSize uint32, messageRetentionPeriod uint32, receiveMessageWaitTime uint16, defaultVisiblityTimeout uint16, tags *[][2]string) (*Queue, error) {
 	// This creates file and mmap and init meta, and returns queue
 	qs.Lock()
 	defer qs.Unlock()
@@ -29,7 +29,8 @@ func (qs *Queues) CreateQueue(name string, delaySeconds uint16, maxMsgSize uint3
 		return nil, err
 	}
 
-	queue.initMeta(delaySeconds, maxMsgSize, messageRetentionPeriod, receiveMessageWaitTime, defaultVisiblityTimeout, tags)
+	queue.initMeta(delaySeconds, maxMsgSize, messageRetentionPeriod, receiveMessageWaitTime, defaultVisiblityTimeout)
+	queue.initTags(tags)
 
 	qs.queues[name] = queue
 
@@ -72,7 +73,7 @@ func (qs *Queues) CloseQueues() {
 	defer qs.Unlock()
 
 	for name, queue := range qs.queues {
-		logs.Logger.Info().Str("name", name).Msg("Closing queue")
+		logs.Logger.Warn().Str("name", name).Msg("Closing queue")
 		queue.closeMmap()
 	}
 }
