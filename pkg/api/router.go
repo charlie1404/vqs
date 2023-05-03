@@ -6,8 +6,6 @@ import (
 )
 
 func (ctx *AppContext) requestHandler(w http.ResponseWriter, r *http.Request) {
-	r.ParseForm()
-
 	w.Header().Set("Content-Type", "application/xml")
 
 	if r.Method != "POST" {
@@ -23,6 +21,8 @@ func (ctx *AppContext) requestHandler(w http.ResponseWriter, r *http.Request) {
 		w.Write(resp)
 		return
 	}
+
+	r.ParseForm()
 
 	switch r.FormValue("Action") {
 	case "ListQueues":

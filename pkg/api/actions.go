@@ -4,8 +4,12 @@ import (
 	"net/http"
 )
 
-func (appCtx *AppContext) ReceiveMessage(w http.ResponseWriter, r *http.Request) {
+type MessageAttribute struct {
+	DataType string
+	Value    []byte
 }
+
+type MessageAttributes map[string]MessageAttribute
 
 func (appCtx *AppContext) DeleteMessage(w http.ResponseWriter, r *http.Request) {
 }

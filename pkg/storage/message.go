@@ -94,9 +94,8 @@ func NewMessage(delaySeconds uint16, body string) *Message {
 	}
 }
 
-func serializeMessage(m interface{}) ([]byte, error) {
+func serializeMessage(m interface{}) ([]byte, int, error) {
 	// for debugging purposes use json encoding instead of gob+gzip
-
 	var gobBuffer bytes.Buffer
 	var gzipBuffer bytes.Buffer
 
@@ -106,11 +105,11 @@ func serializeMessage(m interface{}) ([]byte, error) {
 	compressor := gzip.NewWriter(&gzipBuffer)
 	_, err := compressor.Write(gobBuffer.Bytes())
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	compressor.Close()
 
-	return gzipBuffer.Bytes(), nil
+	return gzipBuffer.Bytes(), gzipBuffer.Len(), nil
 }
 
 func deserializeMessage(b []byte) (*Message, error) {

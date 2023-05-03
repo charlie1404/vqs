@@ -2,6 +2,7 @@ package api
 
 import (
 	"crypto/md5"
+	"encoding/base64"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -15,13 +16,6 @@ import (
 	"github.com/charlie1404/vqs/pkg/storage"
 	"github.com/charlie1404/vqs/pkg/utils"
 )
-
-type MessageAttribute struct {
-	DataType string
-	Value    []byte
-}
-
-type MessageAttributes map[string]MessageAttribute
 
 type SendMessageInput struct {
 	DelaySeconds            uint16            `validate:"min=0,max=900"`
@@ -58,17 +52,34 @@ func parseSendMessageInput(form url.Values) (*SendMessageInput, error) {
 		if attribType != "String" && attribType != "Number" && attribType != "Binary" {
 			continue
 		}
+
+		var attribValue []byte
 		attribName := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Name", i))
-		attribValue := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Value.%sValue", i, attribType))
+
+		attribStringValue := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Value.StringValue", i))
+		attribBinaryValue := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Value.BinaryValue", i))
+
+		// string value has higher priority
+		if attribStringValue != "" {
+			attribValue = []byte(attribStringValue) // TODO: check if data type is binary, then base64 decode is required
+		}
+
+		if attribStringValue == "" && attribBinaryValue != "" {
+			if data, err := base64.StdEncoding.DecodeString(attribBinaryValue); err == nil {
+				attribValue = data
+			} // ignore if base64 decode fails
+		}
 
 		if len(attribName) < 1 ||
-			len(attribName) > 256 {
+			len(attribName) > 256 ||
+			len(attribValue) < 1 {
+			logs.Logger.Warn().Msg("Invalid attribute")
 			continue
 		}
 
 		messageAttributes[attribName] = MessageAttribute{
 			DataType: attribType,
-			Value:    []byte(attribValue),
+			Value:    attribValue,
 		}
 	}
 
@@ -86,7 +97,6 @@ func parseSendMessageInput(form url.Values) (*SendMessageInput, error) {
 
 func (appCtx *AppContext) SendMessage(w http.ResponseWriter, r *http.Request) {
 	sendMessageInput, _ := parseSendMessageInput(r.Form)
-
 	var queue *storage.Queue
 	var err error
 
