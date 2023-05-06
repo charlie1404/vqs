@@ -9,8 +9,9 @@ const MAGIC_NUMBER = 0x01535156 // VQS (0x56 0x51 0x53) Followed By 0x01 (versio
 
 // var DATA_BUFFER_SIZE uint32 = 128 << 20
 
-var DATA_BUFFER_SIZE uint32 = 64 << 10              // 32KB
-var MMAP_BUFFER_SIZE = uint32(os.Getpagesize()) * 1 // should be a multiple of os page size, will set to 1MB later
+var DATA_BUFFER_SIZE uint32 = 64 << 10 // 64KB
+// var MMAP_BUFFER_SIZE = uint32(os.Getpagesize()) * 10 // should be a multiple of os page size, will set to 1MB later
+var MMAP_BUFFER_SIZE = uint32(os.Getpagesize()) * 10 // should be a multiple of os page size, will set to 1MB later
 
 var META_FILE_SIZE = uint32(os.Getpagesize())                // can do 1MB later
 var META_FILE_META_DATA_SIZE = uint32(unsafe.Sizeof(Meta{})) // 36 as of now

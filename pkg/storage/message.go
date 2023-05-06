@@ -6,6 +6,7 @@ import (
 	"encoding/gob"
 	"os"
 	"reflect"
+	"sync"
 	"syscall"
 	"unsafe"
 
@@ -23,6 +24,17 @@ type Message struct {
 	Attributes       map[string]Attribute
 	SystemAttributes map[string]Attribute
 	DelaySeconds     uint16
+}
+
+var gobBufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
+}
+var gzipBufferPool = sync.Pool{
+	New: func() interface{} {
+		return new(bytes.Buffer)
+	},
 }
 
 // Some black magic happens here, follow very closely to understand
@@ -84,25 +96,22 @@ func getMessagesMmapedRegion(path string) (*[]byte, error) {
 	return &byteArray, nil
 }
 
-func NewMessage(delaySeconds uint16, body string) *Message {
-	return &Message{
-		Id:               utils.GenerateUUIDLikeId(),
-		DelaySeconds:     delaySeconds,
-		Body:             body,
-		Attributes:       make(map[string]Attribute),
-		SystemAttributes: make(map[string]Attribute),
-	}
-}
-
 func serializeMessage(m interface{}) ([]byte, int, error) {
 	// for debugging purposes use json encoding instead of gob+gzip
-	var gobBuffer bytes.Buffer
-	var gzipBuffer bytes.Buffer
+	var gobBuffer = gobBufferPool.Get().(*bytes.Buffer)
+	var gzipBuffer = gzipBufferPool.Get().(*bytes.Buffer)
 
-	enc := gob.NewEncoder(&gobBuffer)
+	defer func() {
+		gobBuffer.Reset()
+		gzipBuffer.Reset()
+		gobBufferPool.Put(gobBuffer)
+		gzipBufferPool.Put(gzipBuffer)
+	}()
+
+	enc := gob.NewEncoder(gobBuffer)
 	enc.Encode(m)
 
-	compressor := gzip.NewWriter(&gzipBuffer)
+	compressor := gzip.NewWriter(gzipBuffer)
 	_, err := compressor.Write(gobBuffer.Bytes())
 	if err != nil {
 		return nil, 0, err
@@ -137,6 +146,16 @@ func deserializeMessage(b []byte) (*Message, error) {
 	}
 
 	return &m, nil
+}
+
+func NewMessage(delaySeconds uint16, body string) *Message {
+	return &Message{
+		Id:               utils.GenerateUUIDLikeId(),
+		DelaySeconds:     delaySeconds,
+		Body:             body,
+		Attributes:       make(map[string]Attribute),
+		SystemAttributes: make(map[string]Attribute),
+	}
 }
 
 // _, _, e1 := syscall.Syscall(

@@ -1,0 +1,7 @@
+[app]
+  appEnv                = "dev"
+  host                  = "127.0.0.1:3344"
+
+[storage]
+  initial_queue_file_size = 32768   # 32kB
+  mmap_buffer_size        = 16384   # 16KB

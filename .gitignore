@@ -20,3 +20,4 @@ bin/
 ignore/
 node_modules/
 data/
+.volumes/

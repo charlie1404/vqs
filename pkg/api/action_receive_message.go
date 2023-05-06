@@ -52,7 +52,7 @@ func (appCtx *AppContext) ReceiveMessage(w http.ResponseWriter, r *http.Request)
 
 	queue, err = appCtx.queues.GetQueue(receiveMessageInput.QueueName)
 	if err != nil && err == app_errors.QueueNotExists {
-		logs.Logger.Warn().Msg("Queue not preset, for push, creating one with defaults to recover")
+		logs.Logger.Warn().Msg("QueueNotPresentFault, creating one with defaults to recover")
 		if queue, err = appCtx.queues.CreateQueue(receiveMessageInput.QueueName, 0, 262144, 345600, 0, 30, &[][2]string{}); err == app_errors.CreateQueueQueueExists {
 			logs.Logger.Info().Msg("Queue created by another proc")
 			err = nil

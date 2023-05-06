@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"github.com/charlie1404/vqs/pkg/o11y/logs"
 )
 
@@ -23,9 +25,8 @@ func (s *MetricsServer) SetupInterruptListener() {
 	<-stopCh
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	logs.Logger.Warn().Msg("interrupt signal received, shutting down metrics server")
 
-	// time.Sleep(10 * time.Second)
+	logs.Logger.Warn().Msg("interrupt signal received, shutting down metrics server")
 
 	if err := s.httpServer.Shutdown(ctx); err != nil {
 		logs.Logger.Fatal().Err(err).Msg("Unable to shutdown")
@@ -40,6 +41,10 @@ func (s *MetricsServer) StartServer() {
 	srvMux.HandleFunc("/debug/pprof/profile", pprof.Profile)
 	srvMux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
 	srvMux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+	srvMux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+		Registry: registry,
+	}))
 
 	s.httpServer = &http.Server{
 		Addr:    "127.0.0.1:1337",
@@ -60,6 +65,7 @@ func (s *MetricsServer) StartServer() {
 }
 
 func New() *MetricsServer {
+	initRegistry()
 	s := &MetricsServer{}
 	return s
 }

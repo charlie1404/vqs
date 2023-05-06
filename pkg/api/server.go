@@ -13,8 +13,7 @@ import (
 )
 
 type AppContext struct {
-	queues    *storage.Queues
-	validator ApiValidator
+	queues *storage.Queues
 }
 
 type ApiApp struct {
@@ -39,24 +38,13 @@ func (s *ApiApp) SetupInterruptListener() {
 }
 
 func (s *ApiApp) StartServer() {
-	validator := newValidator()
-	validator.registerCustomValidations()
-
 	s.appCtx = &AppContext{
-		queues:    storage.LoadQueues(),
-		validator: validator,
+		queues: storage.LoadQueues(),
 	}
 
 	srvMux := http.NewServeMux()
 
-	srvMux.Handle("/", logRequestHandler(
-		timeoutMiddleware(
-			http.HandlerFunc(
-				s.appCtx.requestHandler,
-			),
-		),
-	),
-	)
+	srvMux.Handle("/", Middleware(http.HandlerFunc(s.appCtx.requestHandler)))
 
 	s.httpServer = &http.Server{
 		Addr:              "127.0.0.1:3344",

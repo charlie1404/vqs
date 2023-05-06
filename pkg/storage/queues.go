@@ -20,8 +20,8 @@ func (qs *Queues) CreateQueue(name string, delaySeconds uint16, maxMsgSize uint3
 	defer qs.Unlock()
 
 	// for now every create will be blocked, but in future we can use mutex per queue name
-	if _, ok := qs.queues[name]; ok {
-		return nil, app_errors.CreateQueueQueueExists
+	if queue, ok := qs.queues[name]; ok {
+		return queue, app_errors.CreateQueueQueueExists
 	}
 
 	queue, err := NewQueue(name)

@@ -9,6 +9,9 @@
   "[markdown]": {
     "editor.wordWrap": "off"
   },
+  "[yaml]": {
+    "editor.defaultFormatter": "redhat.vscode-yaml"
+  },
   "editor.defaultFormatter": "golang.go",
   "prettier.requireConfig": false,
   "prettier.printWidth": 100,

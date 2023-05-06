@@ -8,21 +8,12 @@ import (
 func (ctx *AppContext) requestHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/xml")
 
-	if r.Method != "POST" {
-		resp := toXMLErrorResponse("UnsupportedMethod", fmt.Sprintf("(%s) method is not supported", r.Method), "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
-		return
-	}
-
 	if r.FormValue("Version") != "2012-11-05" {
 		resp := toXMLErrorResponse("NoSuchVersion", fmt.Sprintf("The requested version ( %s ) is not valid.", r.FormValue("Version")), "")
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write(resp)
 		return
 	}
-
-	r.ParseForm()
 
 	switch r.FormValue("Action") {
 	case "ListQueues":

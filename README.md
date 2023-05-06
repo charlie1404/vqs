@@ -20,7 +20,7 @@ File Header 16KB
 | Message Wait in Seconds  | 2                 | long poll duration                                                                                                                              |
 | Delay in Seconds         | 2                 |                                                                                                                                                 |
 | Visibility Timeout       | 2                 |                                                                                                                                                 |
-| Tags                     | 16KB - 34 = 16350 | <table><tbody><tr><td>TagName</td><td>Null Terminated String</td></tr><tr><td>TagValue</td><td>Null Terminated String</td></tr></tbody></table> |
+| Tags                     | rest of page size | <table><tbody><tr><td>TagName</td><td>Null Terminated String</td></tr><tr><td>TagValue</td><td>Null Terminated String</td></tr></tbody></table> |
 
  - [ ] TODO: Later look how to resize files, or use multiple files
  - [ ] TODO: Page size increase benchmark
@@ -32,3 +32,4 @@ File Header 16KB
  - [ ] TODO: better code structuring
  - [ ] TODO: tests
  - [ ] TODO: write better serialization and deserialization logic
+ - [ ] TODO: use sync.Pool for object allocations

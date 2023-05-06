@@ -100,13 +100,14 @@ func parseCreateQueueInput(form url.Values) *CreateQueueInput {
 func (appCtx *AppContext) CreateQueue(w http.ResponseWriter, r *http.Request) {
 	ip := parseCreateQueueInput(r.Form)
 
-	if err := appCtx.validator.validateCreateQueueInput(ip); err != nil {
-		resp := toXMLErrorResponse("InvalidAttributeValue", "Invalid value for some parameter.", "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Header().Set("Content-Type", "application/xml")
-		w.Write(resp)
-		return
-	}
+	// TODO: Validate input
+	// if err := appCtx.validator.validateCreateQueueInput(ip); err != nil {
+	// 	resp := toXMLErrorResponse("InvalidAttributeValue", "Invalid value for some parameter.", "")
+	// 	w.WriteHeader(http.StatusBadRequest)
+	// 	w.Header().Set("Content-Type", "application/xml")
+	// 	w.Write(resp)
+	// 	return
+	// }
 
 	if _, err := appCtx.queues.CreateQueue(ip.QueueName, ip.Attributes.DelaySeconds, ip.Attributes.MaximumMessageSize, ip.Attributes.MessageRetentionPeriod, ip.Attributes.ReceiveMessageWaitTimeSeconds, ip.Attributes.VisibilityTimeout, ip.Tags); err != nil {
 		logs.Logger.Error().Err(err).Msg("CreateQueue")
