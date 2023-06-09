@@ -7,14 +7,15 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/charlie1404/vqs/pkg/app_errors"
 	"github.com/charlie1404/vqs/pkg/o11y/logs"
 	"github.com/charlie1404/vqs/pkg/storage"
 	"github.com/charlie1404/vqs/pkg/utils"
+	"github.com/valyala/fasthttp"
 )
 
 type SendMessageInput struct {
@@ -26,38 +27,35 @@ type SendMessageInput struct {
 	MessageSystemAttributes MessageAttributes ``
 }
 
-func parseSendMessageInput(form url.Values) (*SendMessageInput, error) {
-	queueUrl := utils.GetFormValueString(form, "QueueUrl")
-
-	parsedQueueUrl, err := url.Parse(queueUrl)
+func parseSendMessageInput(form FormValues) (*SendMessageInput, error) {
+	parsedQueueUrl, err := url.Parse(form["QueueUrl"])
 	if err != nil {
-		// todo retrun standard error
-		return nil, err
+		return nil, err // return queue not found error
 	}
 
 	accountIdAndQueueName := strings.Split(parsedQueueUrl.Path[1:], "/")
 	if len(accountIdAndQueueName) != 2 {
-		// todo retrun standard error
-		return nil, errors.New("invalid queueUrl")
+		return nil, errors.New("invalid queueUrl") // return queue not found error
 	}
 
-	delaySeconds := utils.GetFormValueUint(form, "DelaySeconds", 0)
-
-	messageBody := utils.GetFormValueString(form, "MessageBody")
+	delaySeconds, err := strconv.ParseUint(form["DelaySeconds"], 10, 16)
+	if err != nil {
+		delaySeconds = 0
+	}
 
 	// Max 10 attributes are allowed
 	messageAttributes := make(MessageAttributes)
 	for i := 1; i <= 10; i++ {
-		attribType := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Value.DataType", i))
+		attribType := form[fmt.Sprintf("MessageAttribute.%d.Value.DataType", i)]
 		if attribType != "String" && attribType != "Number" && attribType != "Binary" {
 			continue
 		}
 
 		var attribValue []byte
-		attribName := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Name", i))
 
-		attribStringValue := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Value.StringValue", i))
-		attribBinaryValue := utils.GetFormValueString(form, fmt.Sprintf("MessageAttribute.%d.Value.BinaryValue", i))
+		attribName := form[fmt.Sprintf("MessageAttribute.%d.Name", i)]
+		attribStringValue := form[fmt.Sprintf("MessageAttribute.%d.Value.StringValue", i)]
+		attribBinaryValue := form[fmt.Sprintf("MessageAttribute.%d.Value.BinaryValue", i)]
 
 		// string value has higher priority
 		if attribStringValue != "" {
@@ -65,9 +63,10 @@ func parseSendMessageInput(form url.Values) (*SendMessageInput, error) {
 		}
 
 		if attribStringValue == "" && attribBinaryValue != "" {
-			if data, err := base64.StdEncoding.DecodeString(attribBinaryValue); err == nil {
+			data, err := base64.StdEncoding.DecodeString(attribBinaryValue)
+			if err == nil { // ignore if base64 decode fails
 				attribValue = data
-			} // ignore if base64 decode fails
+			}
 		}
 
 		if len(attribName) < 1 ||
@@ -86,7 +85,7 @@ func parseSendMessageInput(form url.Values) (*SendMessageInput, error) {
 	sendMessageInput := SendMessageInput{
 		DelaySeconds:            uint16(delaySeconds),
 		QueueName:               accountIdAndQueueName[1],
-		MessageBody:             messageBody,
+		MessageBody:             form["MessageBody"],
 		AccountId:               accountIdAndQueueName[0],
 		MessageAttributes:       messageAttributes,
 		MessageSystemAttributes: make(MessageAttributes),
@@ -95,15 +94,17 @@ func parseSendMessageInput(form url.Values) (*SendMessageInput, error) {
 	return &sendMessageInput, nil
 }
 
-func (appCtx *AppContext) SendMessage(w http.ResponseWriter, r *http.Request) {
-	sendMessageInput, _ := parseSendMessageInput(r.Form)
+func (appCtx *AppContext) SendMessage(ctx *fasthttp.RequestCtx) {
+	sendMessageInput, _ := parseSendMessageInput(ctx.UserValue("body").(FormValues))
+
 	var queue *storage.Queue
 	var err error
 
 	queue, err = appCtx.queues.GetQueue(sendMessageInput.QueueName)
 	if err != nil && err == app_errors.QueueNotExists {
 		logs.Logger.Warn().Msg("QueueNotPresentFault, creating one with defaults to recover")
-		if queue, err = appCtx.queues.CreateQueue(sendMessageInput.QueueName, 0, 262144, 345600, 0, 30, &[][2]string{}); err == app_errors.CreateQueueQueueExists {
+
+		if queue, err = appCtx.queues.CreateDefaultQueue(sendMessageInput.QueueName); err == app_errors.CreateQueueQueueExists {
 			logs.Logger.Info().Msg("Queue created by another proc")
 			err = nil
 		}
@@ -112,8 +113,8 @@ func (appCtx *AppContext) SendMessage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		ctx.SetBody(resp)
 		return
 	}
 
@@ -128,13 +129,13 @@ func (appCtx *AppContext) SendMessage(w http.ResponseWriter, r *http.Request) {
 	if err = queue.Push(message); err != nil {
 		log.Println(err)
 		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		ctx.SetBody(resp)
 		return
 	}
 
 	resp := toSendMessageResponse(sendMessageInput.MessageBody)
-	w.Write(resp)
+	ctx.SetBody(resp)
 }
 
 type SendMessageResult struct {

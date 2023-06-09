@@ -18,7 +18,7 @@ func InitLogger() zerolog.Logger {
 		With().
 		Timestamp().
 		Caller().
-		Int("pid", os.Getpid()).
+		// Int("pid", os.Getpid()).
 		Logger()
 
 	return Logger

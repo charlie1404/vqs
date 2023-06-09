@@ -2,75 +2,51 @@ package api
 
 import (
 	"fmt"
-	"net/http"
+
+	"github.com/valyala/fasthttp"
 )
 
-func (ctx *AppContext) requestHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/xml")
+func (appCtx *AppContext) requestHandler(ctx *fasthttp.RequestCtx) {
+	action := string(ctx.FormValue("Action"))
 
-	if r.FormValue("Version") != "2012-11-05" {
-		resp := toXMLErrorResponse("NoSuchVersion", fmt.Sprintf("The requested version ( %s ) is not valid.", r.FormValue("Version")), "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
-		return
-	}
-
-	switch r.FormValue("Action") {
+	switch action {
 	case "ListQueues":
-		ctx.ListQueues(w, r)
-		break
+		appCtx.ListQueues(ctx)
 	case "CreateQueue":
-		ctx.CreateQueue(w, r)
-		break
+		appCtx.CreateQueue(ctx)
 	case "SendMessage":
-		ctx.SendMessage(w, r)
-		break
+		appCtx.SendMessage(ctx)
 	case "ReceiveMessage":
-		ctx.ReceiveMessage(w, r)
-		break
+		appCtx.ReceiveMessage(ctx)
 	case "DeleteMessage":
-		ctx.DeleteMessage(w, r)
-		break
+		appCtx.DeleteMessage(ctx)
 	case "DeleteMessageBatch":
-		ctx.DeleteMessageBatch(w, r)
-		break
+		appCtx.DeleteMessageBatch(ctx)
 	case "SendMessageBatch":
-		ctx.SendMessageBatch(w, r)
-		break
+		appCtx.SendMessageBatch(ctx)
 	case "DeleteQueue":
-		ctx.DeleteQueue(w, r)
-		break
+		appCtx.DeleteQueue(ctx)
 	case "TagQueue":
-		ctx.TagQueue(w, r)
-		break
+		appCtx.TagQueue(ctx)
 	case "ListQueueTags":
-		ctx.ListQueueTags(w, r)
-		break
+		appCtx.ListQueueTags(ctx)
 	case "UntagQueue":
-		ctx.UntagQueue(w, r)
-		break
+		appCtx.UntagQueue(ctx)
 	case "SetQueueAttributes":
-		ctx.SetQueueAttributes(w, r)
-		break
+		appCtx.SetQueueAttributes(ctx)
 	case "GetQueueAttributes":
-		ctx.GetQueueAttributes(w, r)
-		break
+		appCtx.GetQueueAttributes(ctx)
 	case "GetQueueUrl":
-		ctx.GetQueueUrl(w, r)
-		break
+		appCtx.GetQueueUrl(ctx)
 	case "PurgeQueue":
-		ctx.PurgeQueue(w, r)
-		break
+		appCtx.PurgeQueue(ctx)
 	case "ListDeadLetterSourceQueues":
-		ctx.ListDeadLetterSourceQueues(w, r)
-		break
+		appCtx.ListDeadLetterSourceQueues(ctx)
 	case "ChangeMessageVisibility":
-		ctx.ChangeMessageVisibility(w, r)
-		break
+		appCtx.ChangeMessageVisibility(ctx)
 	default:
-		resp := toXMLErrorResponse("InvalidAction", fmt.Sprintf("The action %s is not valid for this endpoint.", r.FormValue("Action")), "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
-		return
+		resp := toXMLErrorResponse("InvalidAction", fmt.Sprintf("The action %s is not valid for this endpoint.", action), "")
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		ctx.SetBody(resp)
 	}
 }

@@ -1,8 +1,6 @@
 package api
 
 import (
-	"context"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -10,6 +8,8 @@ import (
 
 	"github.com/charlie1404/vqs/pkg/o11y/logs"
 	"github.com/charlie1404/vqs/pkg/storage"
+	"github.com/valyala/fasthttp"
+	"github.com/valyala/fasthttp/reuseport"
 )
 
 type AppContext struct {
@@ -17,7 +17,7 @@ type AppContext struct {
 }
 
 type ApiApp struct {
-	httpServer *http.Server
+	httpServer *fasthttp.Server
 	appCtx     *AppContext
 }
 
@@ -26,13 +26,13 @@ func (s *ApiApp) SetupInterruptListener() {
 	signal.Notify(stopCh, os.Interrupt, syscall.SIGTERM, syscall.SIGINT)
 
 	<-stopCh
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	logs.Logger.Warn().Msg("interrupt signal received, shutting down metrics server")
+	logs.Logger.Info().Msg("interrupt signal received, shutting down metrics server")
 
-	// time.Sleep(10 * time.Second)
+	s.httpServer.DisableKeepalive = true
 
-	if err := s.httpServer.Shutdown(ctx); err != nil {
+	time.Sleep(1 * time.Second)
+
+	if err := s.httpServer.Shutdown(); err != nil {
 		logs.Logger.Fatal().Err(err).Msg("Unable to shutdown")
 	}
 }
@@ -42,31 +42,24 @@ func (s *ApiApp) StartServer() {
 		queues: storage.LoadQueues(),
 	}
 
-	srvMux := http.NewServeMux()
+	s.httpServer = &fasthttp.Server{
+		Handler:              Middleware(s.appCtx.requestHandler),
+		ReadTimeout:          5 * time.Second,
+		WriteTimeout:         5 * time.Second,
+		IdleTimeout:          30 * time.Second,
+		MaxConnsPerIP:        500,
+		MaxRequestsPerConn:   500,
+		MaxKeepaliveDuration: 5 * time.Second,
+	}
 
-	srvMux.Handle("/", Middleware(http.HandlerFunc(s.appCtx.requestHandler)))
-
-	s.httpServer = &http.Server{
-		Addr:              "127.0.0.1:3344",
-		ReadTimeout:       5 * time.Second,
-		WriteTimeout:      5 * time.Second,
-		IdleTimeout:       30 * time.Second,
-		ReadHeaderTimeout: 3 * time.Second,
-		Handler:           srvMux,
-
-		// BaseContext: func(l net.Listener) context.Context {
-		// 	ctx = context.WithValue(ctx, keyServerAddr, l.Addr().String())
-		// 	return ctx
-		// },
+	ln, err := reuseport.Listen("tcp4", "127.0.0.1:3344")
+	if err != nil {
+		logs.Logger.Fatal().Err(err).Msg("error in reuseport listener")
 	}
 
 	go func() {
 		logs.Logger.Info().Msg("Starting http server")
-		err := s.httpServer.ListenAndServe()
-		if err == http.ErrServerClosed {
-			logs.Logger.Warn().Msg("Http Server stopped")
-			return
-		}
+		err := s.httpServer.Serve(ln)
 		if err != nil {
 			logs.Logger.Fatal().Err(err).Msg("Http Server stopped unexpected")
 		}

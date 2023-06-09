@@ -14,6 +14,10 @@ type Queues struct {
 	sync.Mutex
 }
 
+func (qs *Queues) CreateDefaultQueue(queueName string) (*Queue, error) {
+	return qs.CreateQueue(queueName, 0, 262144, 345600, 0, 30, &[][2]string{})
+}
+
 func (qs *Queues) CreateQueue(name string, delaySeconds uint16, maxMsgSize uint32, messageRetentionPeriod uint32, receiveMessageWaitTime uint16, defaultVisiblityTimeout uint16, tags *[][2]string) (*Queue, error) {
 	// This creates file and mmap and init meta, and returns queue
 	qs.Lock()

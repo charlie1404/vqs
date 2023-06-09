@@ -4,14 +4,14 @@ import (
 	"encoding/xml"
 	"errors"
 	"log"
-	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/valyala/fasthttp"
 
 	"github.com/charlie1404/vqs/pkg/app_errors"
 	"github.com/charlie1404/vqs/pkg/o11y/logs"
 	"github.com/charlie1404/vqs/pkg/storage"
-	"github.com/charlie1404/vqs/pkg/utils"
 )
 
 type ReceiveMessageInput struct {
@@ -22,19 +22,15 @@ type ReceiveMessageInput struct {
 	MessageAttributeName string `validate:"required"`
 }
 
-func parseReceiveMessageInput(form url.Values) (*ReceiveMessageInput, error) {
-	queueUrl := utils.GetFormValueString(form, "QueueUrl")
-
-	parsedQueueUrl, err := url.Parse(queueUrl)
+func parseReceiveMessageInput(form FormValues) (*ReceiveMessageInput, error) {
+	parsedQueueUrl, err := url.Parse(form["QueueUrl"])
 	if err != nil {
-		// todo retrun standard error
-		return nil, err
+		return nil, err // return queue not found error
 	}
 
 	accountIdAndQueueName := strings.Split(parsedQueueUrl.Path[1:], "/")
 	if len(accountIdAndQueueName) != 2 {
-		// todo retrun standard error
-		return nil, errors.New("invalid queueUrl")
+		return nil, errors.New("invalid queueUrl") // // return queue not found error
 	}
 
 	receiveMessageInput := ReceiveMessageInput{
@@ -45,8 +41,8 @@ func parseReceiveMessageInput(form url.Values) (*ReceiveMessageInput, error) {
 	return &receiveMessageInput, nil
 }
 
-func (appCtx *AppContext) ReceiveMessage(w http.ResponseWriter, r *http.Request) {
-	receiveMessageInput, _ := parseReceiveMessageInput(r.Form)
+func (appCtx *AppContext) ReceiveMessage(ctx *fasthttp.RequestCtx) {
+	receiveMessageInput, _ := parseReceiveMessageInput(ctx.UserValue("body").(FormValues))
 	var queue *storage.Queue
 	var err error
 
@@ -62,21 +58,21 @@ func (appCtx *AppContext) ReceiveMessage(w http.ResponseWriter, r *http.Request)
 	if err != nil {
 		log.Println(err)
 		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		ctx.SetBody(resp)
 		return
 	}
 
 	msg, err := queue.Pop()
 	if err != nil {
 		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		ctx.SetBody(resp)
 		return
 	}
 
 	resp := toReceiveMessageResponse(msg)
-	w.Write(resp)
+	ctx.SetBody(resp)
 }
 
 type Message struct {

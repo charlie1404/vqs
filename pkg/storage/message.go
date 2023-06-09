@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"os"
 	"reflect"
-	"sync"
 	"syscall"
 	"unsafe"
 
@@ -26,16 +25,16 @@ type Message struct {
 	DelaySeconds     uint16
 }
 
-var gobBufferPool = sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
-}
-var gzipBufferPool = sync.Pool{
-	New: func() interface{} {
-		return new(bytes.Buffer)
-	},
-}
+// var gobBufferPool = sync.Pool{
+// 	New: func() interface{} {
+// 		return new(bytes.Buffer)
+// 	},
+// }
+// var gzipBufferPool = sync.Pool{
+// 	New: func() interface{} {
+// 		return new(bytes.Buffer)
+// 	},
+// }
 
 // Some black magic happens here, follow very closely to understand
 func getMessagesMmapedRegion(path string) (*[]byte, error) {
@@ -98,15 +97,17 @@ func getMessagesMmapedRegion(path string) (*[]byte, error) {
 
 func serializeMessage(m interface{}) ([]byte, int, error) {
 	// for debugging purposes use json encoding instead of gob+gzip
-	var gobBuffer = gobBufferPool.Get().(*bytes.Buffer)
-	var gzipBuffer = gzipBufferPool.Get().(*bytes.Buffer)
+	// var gobBuffer = gobBufferPool.Get().(*bytes.Buffer)
+	// var gzipBuffer = gzipBufferPool.Get().(*bytes.Buffer)
+	// gobBuffer.Reset()
+	// gzipBuffer.Reset()
 
-	defer func() {
-		gobBuffer.Reset()
-		gzipBuffer.Reset()
-		gobBufferPool.Put(gobBuffer)
-		gzipBufferPool.Put(gzipBuffer)
-	}()
+	// defer func() {
+	// 	gobBufferPool.Put(gobBuffer)
+	// 	gzipBufferPool.Put(gzipBuffer)
+	// }()
+	gobBuffer := new(bytes.Buffer)
+	gzipBuffer := new(bytes.Buffer)
 
 	enc := gob.NewEncoder(gobBuffer)
 	enc.Encode(m)

@@ -3,13 +3,13 @@ package api
 import (
 	"encoding/xml"
 	"fmt"
-	"net/http"
-	"net/url"
+	"strconv"
 	"unicode/utf8"
+
+	"github.com/valyala/fasthttp"
 
 	"github.com/charlie1404/vqs/pkg/o11y/logs"
 	"github.com/charlie1404/vqs/pkg/storage"
-	"github.com/charlie1404/vqs/pkg/utils"
 )
 
 type QueueAttributes struct {
@@ -26,33 +26,41 @@ type CreateQueueInput struct {
 	Tags       *[][2]string    ``
 }
 
-func parseCreateQueueInput(form url.Values) *CreateQueueInput {
-	queueName := utils.GetFormValueString(form, "QueueName")
-	var delaySeconds uint = 0
-	var maximumMessageSize uint = 262144
-	var messageRetentionPeriod uint = 345600
-	var receiveMessageWaitTimeSeconds uint = 0
-	var visibilityTimeout uint = 30
+func parseCreateQueueInput(form FormValues) *CreateQueueInput {
+	var (
+		delaySeconds                  uint16 = 0
+		maximumMessageSize            uint32 = 262144
+		messageRetentionPeriod        uint32 = 345600
+		receiveMessageWaitTimeSeconds uint16 = 0
+		visibilityTimeout             uint16 = 30
+	)
 
 	// Attributes
 	for i := 1; i <= 8; i++ {
-		attribName := utils.GetFormValueString(form, fmt.Sprintf("Attribute.%d.Name", i))
+		attribName := form[fmt.Sprintf("Attribute.%d.Name", i)]
+		val := form[fmt.Sprintf("Attribute.%d.Value", i)]
+
 		switch attribName {
 		case "DelaySeconds":
-			delaySeconds = utils.GetFormValueUint(form, fmt.Sprintf("Attribute.%d.Value", i), delaySeconds)
-			continue
+			if intVal, err := strconv.ParseUint(val, 10, 16); err == nil {
+				delaySeconds = uint16(intVal)
+			}
 		case "MaximumMessageSize":
-			maximumMessageSize = utils.GetFormValueUint(form, fmt.Sprintf("Attribute.%d.Value", i), maximumMessageSize)
-			continue
+			if intVal, err := strconv.ParseUint(val, 10, 32); err == nil {
+				maximumMessageSize = uint32(intVal)
+			}
 		case "MessageRetentionPeriod":
-			messageRetentionPeriod = utils.GetFormValueUint(form, fmt.Sprintf("Attribute.%d.Value", i), messageRetentionPeriod)
-			continue
+			if intVal, err := strconv.ParseUint(val, 10, 32); err == nil {
+				messageRetentionPeriod = uint32(intVal)
+			}
 		case "ReceiveMessageWaitTimeSeconds":
-			receiveMessageWaitTimeSeconds = utils.GetFormValueUint(form, fmt.Sprintf("Attribute.%d.Value", i), receiveMessageWaitTimeSeconds)
-			continue
+			if intVal, err := strconv.ParseUint(val, 10, 16); err == nil {
+				receiveMessageWaitTimeSeconds = uint16(intVal)
+			}
 		case "VisibilityTimeout":
-			visibilityTimeout = utils.GetFormValueUint(form, fmt.Sprintf("Attribute.%d.Value", i), visibilityTimeout)
-			continue
+			if intVal, err := strconv.ParseUint(val, 10, 16); err == nil {
+				visibilityTimeout = uint16(intVal)
+			}
 		}
 	}
 
@@ -64,8 +72,8 @@ func parseCreateQueueInput(form url.Values) *CreateQueueInput {
 	tags := [][2]string{}
 	tagsSize := 0
 	for i := 1; i <= 50; i++ {
-		tagName := utils.GetFormValueString(form, fmt.Sprintf("Tag.%d.Key", i))
-		tagValue := utils.GetFormValueString(form, fmt.Sprintf("Tag.%d.Value", i))
+		tagName := form[fmt.Sprintf("Tag.%d.Key", i)]
+		tagValue := form[fmt.Sprintf("Tag.%d.Value", i)]
 
 		if len(tagName) == 0 ||
 			len(tagValue) == 0 ||
@@ -83,13 +91,13 @@ func parseCreateQueueInput(form url.Values) *CreateQueueInput {
 	}
 
 	createQueueInput := CreateQueueInput{
-		QueueName: queueName,
+		QueueName: form["QueueName"],
 		Attributes: QueueAttributes{
-			DelaySeconds:                  uint16(delaySeconds),
-			MaximumMessageSize:            uint32(maximumMessageSize),
-			MessageRetentionPeriod:        uint32(messageRetentionPeriod),
-			ReceiveMessageWaitTimeSeconds: uint16(receiveMessageWaitTimeSeconds),
-			VisibilityTimeout:             uint16(visibilityTimeout),
+			DelaySeconds:                  delaySeconds,
+			MaximumMessageSize:            maximumMessageSize,
+			MessageRetentionPeriod:        messageRetentionPeriod,
+			ReceiveMessageWaitTimeSeconds: receiveMessageWaitTimeSeconds,
+			VisibilityTimeout:             visibilityTimeout,
 		},
 		Tags: &tags,
 	}
@@ -97,8 +105,9 @@ func parseCreateQueueInput(form url.Values) *CreateQueueInput {
 	return &createQueueInput
 }
 
-func (appCtx *AppContext) CreateQueue(w http.ResponseWriter, r *http.Request) {
-	ip := parseCreateQueueInput(r.Form)
+func (appCtx *AppContext) CreateQueue(ctx *fasthttp.RequestCtx) {
+	ip := parseCreateQueueInput(ctx.UserValue("body").(FormValues))
+	fmt.Printf("%+v\n", ip)
 
 	// TODO: Validate input
 	// if err := appCtx.validator.validateCreateQueueInput(ip); err != nil {
@@ -112,13 +121,13 @@ func (appCtx *AppContext) CreateQueue(w http.ResponseWriter, r *http.Request) {
 	if _, err := appCtx.queues.CreateQueue(ip.QueueName, ip.Attributes.DelaySeconds, ip.Attributes.MaximumMessageSize, ip.Attributes.MessageRetentionPeriod, ip.Attributes.ReceiveMessageWaitTimeSeconds, ip.Attributes.VisibilityTimeout, ip.Tags); err != nil {
 		logs.Logger.Error().Err(err).Msg("CreateQueue")
 		resp := toXMLErrorResponse("InternalServerError", "Todo return better errors", "")
-		w.WriteHeader(http.StatusBadRequest)
-		w.Write(resp)
+		ctx.SetStatusCode(fasthttp.StatusBadRequest)
+		ctx.SetBody(resp)
 		return
 	}
 
 	resp := toCreateQueueResponse(ip.QueueName)
-	w.Write(resp)
+	ctx.SetBody(resp)
 }
 
 type CreateQueueResult struct {

@@ -5,7 +5,7 @@
     ".git",
     "node_modules/"
   ],
-  "exec": "go run main.go server || exit 1",
+  "exec": "go run main.go || exit 1",
   "watch": [
     "pkg/",
     "main.go"

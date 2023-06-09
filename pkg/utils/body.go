@@ -1,26 +1,17 @@
 package utils
 
 import (
-	"net/url"
-	"strconv"
+	"bytes"
 )
 
-func GetFormValueString(form url.Values, key string) string {
-	if vals := form[key]; len(vals) > 0 {
-		return vals[0]
-	}
-	return ""
-}
-
-func GetFormValueUint(form url.Values, key string, defaultVal uint) uint {
-	val := ""
-	if vals := form[key]; len(vals) > 0 {
-		val = vals[0]
-	}
-
-	if intVal, err := strconv.Atoi(val); err != nil {
-		return defaultVal
+func ParseUrlEncodedBodyParamKV(kv []byte, sep byte) (key, value string) {
+	pos := bytes.IndexByte(kv, sep)
+	if pos < 0 {
+		key = string(kv)
+		value = ""
 	} else {
-		return uint(intVal)
+		key, value = string(kv[:pos]), string(kv[pos+1:])
 	}
+
+	return
 }

@@ -13,3 +13,7 @@ datasources:
     basicAuth: false
     isDefault: true
     editable: true
+
+  - name: ParcaDataSource
+    type: parca
+    url: http://parca:7070
