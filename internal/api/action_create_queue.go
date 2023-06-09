@@ -8,8 +8,8 @@ import (
 
 	"github.com/valyala/fasthttp"
 
-	"github.com/charlie1404/vqs/pkg/o11y/logs"
-	"github.com/charlie1404/vqs/pkg/storage"
+	"github.com/charlie1404/vqs/internal/o11y/logs"
+	"github.com/charlie1404/vqs/internal/storage"
 )
 
 type QueueAttributes struct {
@@ -107,7 +107,6 @@ func parseCreateQueueInput(form FormValues) *CreateQueueInput {
 
 func (appCtx *AppContext) CreateQueue(ctx *fasthttp.RequestCtx) {
 	ip := parseCreateQueueInput(ctx.UserValue("body").(FormValues))
-	fmt.Printf("%+v\n", ip)
 
 	// TODO: Validate input
 	// if err := appCtx.validator.validateCreateQueueInput(ip); err != nil {

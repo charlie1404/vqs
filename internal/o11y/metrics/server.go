@@ -11,7 +11,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/charlie1404/vqs/pkg/o11y/logs"
+	"github.com/charlie1404/vqs/internal/o11y/logs"
 )
 
 type MetricsServer struct {

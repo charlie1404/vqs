@@ -6,9 +6,9 @@ import (
 	"os"
 	"sync"
 
-	"github.com/charlie1404/vqs/pkg/api"
-	"github.com/charlie1404/vqs/pkg/o11y/logs"
-	"github.com/charlie1404/vqs/pkg/o11y/metrics"
+	"github.com/charlie1404/vqs/internal/api"
+	"github.com/charlie1404/vqs/internal/o11y/logs"
+	"github.com/charlie1404/vqs/internal/o11y/metrics"
 )
 
 func clearScreen() {

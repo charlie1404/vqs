@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/charlie1404/vqs/pkg/utils"
+	"github.com/charlie1404/vqs/internal/utils"
 )
 
 type Attribute struct {

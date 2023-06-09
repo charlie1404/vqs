@@ -5,8 +5,8 @@ import (
 	"path"
 	"sync"
 
-	"github.com/charlie1404/vqs/pkg/app_errors"
-	"github.com/charlie1404/vqs/pkg/o11y/logs"
+	"github.com/charlie1404/vqs/internal/app_errors"
+	"github.com/charlie1404/vqs/internal/o11y/logs"
 )
 
 type Queues struct {

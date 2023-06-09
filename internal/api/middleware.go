@@ -7,8 +7,8 @@ import (
 
 	"github.com/valyala/fasthttp"
 
-	"github.com/charlie1404/vqs/pkg/o11y/metrics"
-	"github.com/charlie1404/vqs/pkg/utils"
+	"github.com/charlie1404/vqs/internal/o11y/metrics"
+	"github.com/charlie1404/vqs/internal/utils"
 )
 
 var (
@@ -37,6 +37,8 @@ func httpMetricsHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 		defer func() {
 			elapsedMs := float64(time.Since(start).Microseconds())
 			action := string(ctx.FormValue("Action"))
+
+			fmt.Println("ElapsedMs: ", elapsedMs)
 
 			statusText := fmt.Sprintf("%d", ctx.Response.StatusCode())
 			metrics.IncHttpRequestsCounter(statusText, action)
@@ -76,13 +78,17 @@ func parseHttpBodyMiddleware(h fasthttp.RequestHandler) fasthttp.RequestHandler 
 			}
 
 			key, value := utils.ParseUrlEncodedBodyParamKV(urlEncodedBody[:pos], QUERY_PARAM_KV_SEP)
-			formValues[key] = value
+			if key != "" {
+				formValues[key] = value
+			}
 
 			urlEncodedBody = urlEncodedBody[pos+1:]
 		}
 
 		key, value := utils.ParseUrlEncodedBodyParamKV(urlEncodedBody, QUERY_PARAM_KV_SEP)
-		formValues[key] = value
+		if key != "" {
+			formValues[key] = value
+		}
 
 		ctx.SetUserValue("body", formValues)
 

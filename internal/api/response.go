@@ -2,9 +2,8 @@ package api
 
 import (
 	"encoding/xml"
-	"fmt"
 
-	"github.com/charlie1404/vqs/pkg/utils"
+	"github.com/charlie1404/vqs/internal/utils"
 )
 
 type ErrorResponseError struct {
@@ -28,12 +27,6 @@ func NewResponseMetadata() ResponseMetadata {
 	return ResponseMetadata{
 		RequestId: utils.GenerateUUIDLikeId(),
 	}
-}
-
-func debugPrint(resp interface{}) {
-	response, _ := xml.MarshalIndent(resp, "", "  ")
-	response = append([]byte("<?xml version=\"1.0\"?>\n"), response...)
-	fmt.Println(string(response))
 }
 
 func toXMLErrorResponse(code, message, detail string) []byte {

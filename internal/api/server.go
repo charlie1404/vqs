@@ -6,8 +6,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/charlie1404/vqs/pkg/o11y/logs"
-	"github.com/charlie1404/vqs/pkg/storage"
+	"github.com/charlie1404/vqs/internal/o11y/logs"
+	"github.com/charlie1404/vqs/internal/storage"
 	"github.com/valyala/fasthttp"
 	"github.com/valyala/fasthttp/reuseport"
 )
