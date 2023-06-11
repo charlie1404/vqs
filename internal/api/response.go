@@ -6,6 +6,24 @@ import (
 	"github.com/charlie1404/vqs/internal/utils"
 )
 
+type VQSError struct {
+	Code      string
+	Detail    string
+	Message   string
+	Type      string
+	RequestId string
+}
+
+func NewVQSError(code, message, detail string) *VQSError {
+	return &VQSError{
+		Code:      code,
+		Message:   message,
+		Detail:    detail,
+		Type:      "Sender",
+		RequestId: utils.GenerateUUIDLikeId(),
+	}
+}
+
 type ErrorResponseError struct {
 	Code    string `xml:"Code"`
 	Detail  string `xml:"Detail"`

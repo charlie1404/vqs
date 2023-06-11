@@ -7,7 +7,7 @@ scrape_configs:
     scrape_interval: 5s
     static_configs:
       - targets:
-          - host.docker.internal:1337
+          - vqs:1337
 
   - job_name: cadvisor
     scrape_interval: 5s

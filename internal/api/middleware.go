@@ -3,6 +3,8 @@ package api
 import (
 	"bytes"
 	"fmt"
+	"sync"
+	"text/template"
 	"time"
 
 	"github.com/valyala/fasthttp"
@@ -17,7 +19,15 @@ var (
 	QUERY_PARAM_KV_SEP = byte('=')
 )
 
-func setXmlContentType(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+type Middleware struct {
+	templates *template.Template
+}
+
+func (m *Middleware) timeoutHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+	return fasthttp.TimeoutWithCodeHandler(h, 2*time.Second, TIMEOUT_MESSAGE, fasthttp.StatusServiceUnavailable)
+}
+
+func (m *Middleware) setXmlContentType(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	fn := func(ctx *fasthttp.RequestCtx) {
 		ctx.SetContentType("application/xml")
 		h(ctx)
@@ -26,19 +36,13 @@ func setXmlContentType(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return fn
 }
 
-func timeoutHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
-	return fasthttp.TimeoutWithCodeHandler(h, 2*time.Second, TIMEOUT_MESSAGE, fasthttp.StatusServiceUnavailable)
-}
-
-func httpMetricsHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+func (m *Middleware) httpMetricsHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	fn := func(ctx *fasthttp.RequestCtx) {
 		start := time.Now()
 
 		defer func() {
 			elapsedMs := float64(time.Since(start).Microseconds())
 			action := string(ctx.FormValue("Action"))
-
-			fmt.Println("ElapsedMs: ", elapsedMs)
 
 			statusText := fmt.Sprintf("%d", ctx.Response.StatusCode())
 			metrics.IncHttpRequestsCounter(statusText, action)
@@ -51,12 +55,13 @@ func httpMetricsHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return fn
 }
 
-func validateContentType(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+func (m *Middleware) validateContentType(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	fn := func(ctx *fasthttp.RequestCtx) {
+		x := StreamWriter{ctx}
+
 		if string(ctx.Request.Header.ContentType()) != "application/x-www-form-urlencoded" {
-			resp := toXMLErrorResponse("InvalidContentType", "Invalid content type", "")
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
-			ctx.SetBody(resp)
+			m.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("InvalidContentType", "Invalid content type", ""))
 			return
 		}
 
@@ -66,10 +71,16 @@ func validateContentType(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return fn
 }
 
-func parseHttpBodyMiddleware(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+func (m *Middleware) parseHttpBodyMiddleware(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+	var FormValuesSyncPool = sync.Pool{
+		New: func() interface{} { return make(FormValues) },
+	}
+
 	fn := func(ctx *fasthttp.RequestCtx) {
+		formValues := FormValuesSyncPool.Get().(FormValues).Reset()
+		defer FormValuesSyncPool.Put(formValues)
+
 		urlEncodedBody := ctx.PostBody()
-		formValues := make(FormValues)
 
 		for {
 			pos := bytes.IndexByte(urlEncodedBody, QUERY_PARAM_SEP)
@@ -78,17 +89,13 @@ func parseHttpBodyMiddleware(h fasthttp.RequestHandler) fasthttp.RequestHandler 
 			}
 
 			key, value := utils.ParseUrlEncodedBodyParamKV(urlEncodedBody[:pos], QUERY_PARAM_KV_SEP)
-			if key != "" {
-				formValues[key] = value
-			}
+			formValues.Set(key, value)
 
 			urlEncodedBody = urlEncodedBody[pos+1:]
 		}
 
 		key, value := utils.ParseUrlEncodedBodyParamKV(urlEncodedBody, QUERY_PARAM_KV_SEP)
-		if key != "" {
-			formValues[key] = value
-		}
+		formValues.Set(key, value)
 
 		ctx.SetUserValue("body", formValues)
 
@@ -98,31 +105,30 @@ func parseHttpBodyMiddleware(h fasthttp.RequestHandler) fasthttp.RequestHandler 
 	return fn
 }
 
-func validateRequestBasic(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+func (m *Middleware) validateRequestBasic(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	fn := func(ctx *fasthttp.RequestCtx) {
 		formValues := ctx.UserValue("body").(FormValues)
 
+		x := StreamWriter{ctx}
+
 		method := ctx.Method()
 		if string(method) != fasthttp.MethodPost {
-			resp := toXMLErrorResponse("UnsupportedMethod", fmt.Sprintf("(%s) method is not supported", method), "Kuch bhi")
 			ctx.SetStatusCode(fasthttp.StatusMethodNotAllowed)
-			ctx.SetBody(resp)
+			m.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("UnsupportedMethod", fmt.Sprintf("(%s) method is not supported", method), "Kuch bhi"))
 			return
 		}
 
 		action := formValues["Action"]
 		if action == "" {
-			resp := toXMLErrorResponse("MissingAction", "The request must contain the parameter Action.", "")
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
-			ctx.SetBody(resp)
+			m.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("MissingAction", "The request must contain the parameter Action.", ""))
 			return
 		}
 
 		ver := formValues["Version"]
 		if ver != "2012-11-05" {
-			resp := toXMLErrorResponse("NoSuchVersion", fmt.Sprintf("The requested version ( %s ) is not valid.", ver), "")
 			ctx.SetStatusCode(fasthttp.StatusBadRequest)
-			ctx.Write(resp)
+			m.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("NoSuchVersion", fmt.Sprintf("The requested version ( %s ) is not valid.", ver), ""))
 			return
 		}
 
@@ -132,7 +138,7 @@ func validateRequestBasic(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return fn
 }
 
-func logRequestHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+func (m *Middleware) logRequestHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	fn := func(ctx *fasthttp.RequestCtx) {
 		// logId := utils.GenerateUUIDLikeId()
 
@@ -141,12 +147,12 @@ func logRequestHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 		// 	Str("co-relation-id", logId).
 		// 	Msg("request")
 
-		// // defer func() {
-		// // 	logs.Logger.
-		// // 		Info().
-		// // 		Str("co-relation-id", logId).
-		// // 		Msg("response")
-		// // }()
+		// defer func() {
+		// 	logs.Logger.
+		// 		Info().
+		// 		Str("co-relation-id", logId).
+		// 		Msg("response")
+		// }()
 
 		h(ctx)
 	}
@@ -154,14 +160,14 @@ func logRequestHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
 	return fn
 }
 
-func Middleware(h fasthttp.RequestHandler) fasthttp.RequestHandler {
-	return setXmlContentType(
-		timeoutHandler(
-			httpMetricsHandler(
-				validateContentType(
-					parseHttpBodyMiddleware(
-						validateRequestBasic(
-							logRequestHandler(
+func (m *Middleware) WrapHandler(h fasthttp.RequestHandler) fasthttp.RequestHandler {
+	return m.timeoutHandler(
+		m.setXmlContentType(
+			m.httpMetricsHandler(
+				m.validateContentType(
+					m.parseHttpBodyMiddleware(
+						m.validateRequestBasic(
+							m.logRequestHandler(
 								h,
 							),
 						),

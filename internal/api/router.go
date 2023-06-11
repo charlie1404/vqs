@@ -7,7 +7,8 @@ import (
 )
 
 func (appCtx *AppContext) requestHandler(ctx *fasthttp.RequestCtx) {
-	action := string(ctx.FormValue("Action"))
+	formValues := ctx.UserValue("body").(FormValues)
+	action := formValues["Action"]
 
 	switch action {
 	case "ListQueues":
@@ -45,8 +46,8 @@ func (appCtx *AppContext) requestHandler(ctx *fasthttp.RequestCtx) {
 	case "ChangeMessageVisibility":
 		appCtx.ChangeMessageVisibility(ctx)
 	default:
-		resp := toXMLErrorResponse("InvalidAction", fmt.Sprintf("The action %s is not valid for this endpoint.", action), "")
+		x := StreamWriter{ctx}
 		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.SetBody(resp)
+		appCtx.templates.ExecuteTemplate(x, "error.xml", NewVQSError("InvalidAction", fmt.Sprintf("The action %s is not valid for this endpoint.", action), ""))
 	}
 }

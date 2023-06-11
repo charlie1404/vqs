@@ -4,16 +4,17 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"text/template"
 	"time"
 
 	"github.com/charlie1404/vqs/internal/o11y/logs"
 	"github.com/charlie1404/vqs/internal/storage"
 	"github.com/valyala/fasthttp"
-	"github.com/valyala/fasthttp/reuseport"
 )
 
 type AppContext struct {
-	queues *storage.Queues
+	queues    *storage.Queues
+	templates *template.Template
 }
 
 type ApiApp struct {
@@ -38,12 +39,16 @@ func (s *ApiApp) SetupInterruptListener() {
 }
 
 func (s *ApiApp) StartServer() {
+	templates := template.Must(template.ParseGlob("internal/templates/*"))
+	middleware := Middleware{templates: templates}
+
 	s.appCtx = &AppContext{
-		queues: storage.LoadQueues(),
+		queues:    storage.LoadQueues(),
+		templates: templates,
 	}
 
 	s.httpServer = &fasthttp.Server{
-		Handler:              Middleware(s.appCtx.requestHandler),
+		Handler:              middleware.WrapHandler(s.appCtx.requestHandler),
 		ReadTimeout:          5 * time.Second,
 		WriteTimeout:         5 * time.Second,
 		IdleTimeout:          30 * time.Second,
@@ -52,14 +57,9 @@ func (s *ApiApp) StartServer() {
 		MaxKeepaliveDuration: 5 * time.Second,
 	}
 
-	ln, err := reuseport.Listen("tcp4", "127.0.0.1:3344")
-	if err != nil {
-		logs.Logger.Fatal().Err(err).Msg("error in reuseport listener")
-	}
-
 	go func() {
 		logs.Logger.Info().Msg("Starting http server")
-		err := s.httpServer.Serve(ln)
+		err := s.httpServer.ListenAndServe("127.0.0.1:3344")
 		if err != nil {
 			logs.Logger.Fatal().Err(err).Msg("Http Server stopped unexpected")
 		}

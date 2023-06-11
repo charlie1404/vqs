@@ -1,0 +1,14 @@
+.git/
+bin/
+data/
+ignore/
+node_modules/
+tmp/
+.dockerignore
+.editorconfig
+.gitignore
+.golangci.yml
+Dockerfile.local
+docker-compose.yml
+README.md
+.vscode/

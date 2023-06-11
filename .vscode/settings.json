@@ -14,7 +14,7 @@
   },
   "editor.defaultFormatter": "golang.go",
   "prettier.requireConfig": false,
-  "prettier.printWidth": 100,
+  "prettier.printWidth": 120,
   "workbench.editorAssociations": {
     "*.dat": "hexEditor.hexedit",
     "*.bin": "hexEditor.hexedit",

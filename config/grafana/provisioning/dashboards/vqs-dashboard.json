@@ -385,32 +385,7 @@
           },
           "unit": "none"
         },
-        "overrides": [
-          {
-            "__systemRef": "hideSeriesFrom",
-            "matcher": {
-              "id": "byNames",
-              "options": {
-                "mode": "exclude",
-                "names": [
-                  "api"
-                ],
-                "prefix": "All except:",
-                "readOnly": true
-              }
-            },
-            "properties": [
-              {
-                "id": "custom.hideFrom",
-                "value": {
-                  "legend": false,
-                  "tooltip": false,
-                  "viz": true
-                }
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "gridPos": {
         "h": 9,
@@ -1903,7 +1878,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "sum by (name) (rate(container_network_receive_bytes_total{name=~\"ondc-rsp-$job\"}[1m]))",
+          "expr": "sum by (name) (rate(container_network_receive_bytes_total{name=~\"$job\"}[1m]))",
           "legendFormat": "{{name}}: RECEIVE",
           "range": true,
           "refId": "A"
@@ -1914,7 +1889,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "- sum by (name) (rate(container_network_transmit_bytes_total{name=~\"ondc-rsp-$job\"}[1m]))",
+          "expr": "- sum by (name) (rate(container_network_transmit_bytes_total{name=~\"$job\"}[1m]))",
           "hide": false,
           "legendFormat": "{{name}}: SENT",
           "range": true,
@@ -2003,7 +1978,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "container_memory_rss{name=~\"ondc-rsp-$job\"}",
+          "expr": "container_memory_rss{name=~\"$job\"}",
           "legendFormat": "{{name}}: rss",
           "range": true,
           "refId": "A"
@@ -2014,7 +1989,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "container_memory_usage_bytes{name=~\"ondc-rsp-$job\"}",
+          "expr": "container_memory_usage_bytes{name=~\"$job\"}",
           "hide": false,
           "legendFormat": "{{name}}: usage_byte",
           "range": true,
@@ -2026,7 +2001,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "container_memory_cache{name=~\"ondc-rsp-$job\"}",
+          "expr": "container_memory_cache{name=~\"$job\"}",
           "hide": false,
           "legendFormat": "{{name}}: cache",
           "range": true,
@@ -2115,7 +2090,7 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "rate(container_cpu_usage_seconds_total{name=~\"ondc-rsp-$job\"}[1m]) * 100",
+          "expr": "rate(container_cpu_usage_seconds_total{name=~\"$job\"}[1m]) * 100",
           "legendFormat": "{{name}}",
           "range": true,
           "refId": "A"
@@ -2156,7 +2131,7 @@
             "type": "parca",
             "uid": "P388E994163F54118"
           },
-          "labelSelector": "{job=\"api\"}",
+          "labelSelector": "{job=\"vqs\"}",
           "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds:delta",
           "queryType": "profile",
           "refId": "A"
@@ -2166,68 +2141,12 @@
       "type": "flamegraph"
     },
     {
-      "datasource": {
-        "type": "parca",
-        "uid": "P388E994163F54118"
-      },
-      "gridPos": {
-        "h": 13,
-        "w": 24,
-        "x": 0,
-        "y": 105
-      },
-      "id": 23,
-      "pluginVersion": "9.5.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "parca",
-            "uid": "P388E994163F54118"
-          },
-          "labelSelector": "{job=\"processor\"}",
-          "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds:delta",
-          "queryType": "profile",
-          "refId": "A"
-        }
-      ],
-      "title": "Processor CPU Profile",
-      "type": "flamegraph"
-    },
-    {
-      "datasource": {
-        "type": "parca",
-        "uid": "P388E994163F54118"
-      },
-      "gridPos": {
-        "h": 13,
-        "w": 24,
-        "x": 0,
-        "y": 118
-      },
-      "id": 22,
-      "pluginVersion": "9.5.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "parca",
-            "uid": "P388E994163F54118"
-          },
-          "labelSelector": "{job=\"trigger\"}",
-          "profileTypeId": "process_cpu:cpu:nanoseconds:cpu:nanoseconds:delta",
-          "queryType": "profile",
-          "refId": "A"
-        }
-      ],
-      "title": "Trigger CPU Profile",
-      "type": "flamegraph"
-    },
-    {
       "collapsed": false,
       "gridPos": {
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 131
+        "y": 105
       },
       "id": 19,
       "panels": [],
@@ -2243,7 +2162,7 @@
         "h": 2,
         "w": 5,
         "x": 0,
-        "y": 132
+        "y": 106
       },
       "id": 18,
       "options": {
@@ -2270,8 +2189,8 @@
         "allValue": "(vqs)",
         "current": {
           "selected": false,
-          "text": "All",
-          "value": "$__all"
+          "text": "vqs",
+          "value": "vqs"
         },
         "description": "ContainerName",
         "hide": 0,
@@ -2281,12 +2200,12 @@
         "name": "job",
         "options": [
           {
-            "selected": true,
+            "selected": false,
             "text": "All",
             "value": "$__all"
           },
           {
-            "selected": false,
+            "selected": true,
             "text": "vqs",
             "value": "vqs"
           }
@@ -2299,7 +2218,7 @@
     ]
   },
   "time": {
-    "from": "now-1h",
+    "from": "now-30m",
     "to": "now"
   },
   "timepicker": {
@@ -2317,8 +2236,8 @@
     ]
   },
   "timezone": "",
-  "title": "ONDC RSP System",
+  "title": "VQS System",
   "uid": "b9735a7f-2b18-40b3-9849-a0969fe1eeb6",
-  "version": 2,
+  "version": 8,
   "weekStart": "monday"
 }

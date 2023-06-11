@@ -1,7 +1,6 @@
 package api
 
 import (
-	"encoding/xml"
 	"fmt"
 	"strconv"
 	"unicode/utf8"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/charlie1404/vqs/internal/o11y/logs"
 	"github.com/charlie1404/vqs/internal/storage"
+	"github.com/charlie1404/vqs/internal/utils"
 )
 
 type QueueAttributes struct {
@@ -108,6 +108,8 @@ func parseCreateQueueInput(form FormValues) *CreateQueueInput {
 func (appCtx *AppContext) CreateQueue(ctx *fasthttp.RequestCtx) {
 	ip := parseCreateQueueInput(ctx.UserValue("body").(FormValues))
 
+	x := StreamWriter{ctx: ctx}
+
 	// TODO: Validate input
 	// if err := appCtx.validator.validateCreateQueueInput(ip); err != nil {
 	// 	resp := toXMLErrorResponse("InvalidAttributeValue", "Invalid value for some parameter.", "")
@@ -119,36 +121,20 @@ func (appCtx *AppContext) CreateQueue(ctx *fasthttp.RequestCtx) {
 
 	if _, err := appCtx.queues.CreateQueue(ip.QueueName, ip.Attributes.DelaySeconds, ip.Attributes.MaximumMessageSize, ip.Attributes.MessageRetentionPeriod, ip.Attributes.ReceiveMessageWaitTimeSeconds, ip.Attributes.VisibilityTimeout, ip.Tags); err != nil {
 		logs.Logger.Error().Err(err).Msg("CreateQueue")
-		resp := toXMLErrorResponse("InternalServerError", "Todo return better errors", "")
-		ctx.SetStatusCode(fasthttp.StatusBadRequest)
-		ctx.SetBody(resp)
+		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
+		appCtx.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("InternalServerError", "Todo return better errors", ""))
 		return
 	}
 
-	resp := toCreateQueueResponse(ip.QueueName)
-	ctx.SetBody(resp)
+	val := &CreateQueueResult{
+		QueueUrl:  fmt.Sprintf("%s://%s/000000000000/%s", ctx.URI().Scheme(), ctx.Request.Host(), ip.QueueName),
+		RequestId: utils.GenerateUUIDLikeId(),
+	}
+
+	_ = appCtx.templates.ExecuteTemplate(x, "create_queue.tpl", val)
 }
 
 type CreateQueueResult struct {
-	QueueUrl string `xml:"QueueUrl"`
-}
-
-type CreateQueueResponse struct {
-	XMLName           xml.Name          `xml:"http://queue.amazonaws.com/doc/2012-11-05/ CreateQueueResponse"`
-	CreateQueueResult CreateQueueResult `xml:"CreateQueueResult"`
-	ResponseMetadata  ResponseMetadata  `xml:"ResponseMetadata"`
-}
-
-func toCreateQueueResponse(queueName string) []byte {
-	resp := CreateQueueResponse{
-		CreateQueueResult: CreateQueueResult{
-			QueueUrl: queueName,
-		},
-		ResponseMetadata: NewResponseMetadata(),
-	}
-
-	response, _ := xml.Marshal(resp)
-	response = append([]byte("<?xml version=\"1.0\"?>"), response...)
-
-	return response
+	QueueUrl  string
+	RequestId string
 }

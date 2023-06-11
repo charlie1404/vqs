@@ -1,0 +1,24 @@
+FROM golang:1.19-alpine3.16
+
+RUN apk add --update --no-cache ca-certificates curl git make
+
+WORKDIR /app
+
+COPY go.mod go.sum /app
+
+RUN go mod download
+
+# Triggers rebuild on file changes
+RUN go install github.com/githubnemo/CompileDaemon@v1.4.0
+
+# We can do copy . . but that will copy extra files too for no reason
+COPY config /app/config
+COPY internal /app/internal
+COPY main.go Makefile /app
+
+# cache build for faster subsequent builds, usefull when doing first docker compose up
+RUN make build
+
+ENTRYPOINT ["CompileDaemon"]
+
+CMD ["--log-prefix=false", "--build=make build", "--command=./bin/vqs"]

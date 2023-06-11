@@ -8,7 +8,7 @@ scrape_configs:
   - job_name: "vqs"
     scrape_interval: "10s"
     static_configs:
-      - targets: ["host.docker.internal:3344"]
+      - targets: ["vqs:1337"]
     profiling_config:
       pprof_config:
         memory:

@@ -2,7 +2,6 @@ package storage
 
 import (
 	"bytes"
-	"compress/gzip"
 	"encoding/gob"
 	"os"
 	"reflect"
@@ -24,17 +23,6 @@ type Message struct {
 	SystemAttributes map[string]Attribute
 	DelaySeconds     uint16
 }
-
-// var gobBufferPool = sync.Pool{
-// 	New: func() interface{} {
-// 		return new(bytes.Buffer)
-// 	},
-// }
-// var gzipBufferPool = sync.Pool{
-// 	New: func() interface{} {
-// 		return new(bytes.Buffer)
-// 	},
-// }
 
 // Some black magic happens here, follow very closely to understand
 func getMessagesMmapedRegion(path string) (*[]byte, error) {
@@ -96,52 +84,22 @@ func getMessagesMmapedRegion(path string) (*[]byte, error) {
 }
 
 func serializeMessage(m interface{}) ([]byte, int, error) {
-	// for debugging purposes use json encoding instead of gob+gzip
-	// var gobBuffer = gobBufferPool.Get().(*bytes.Buffer)
-	// var gzipBuffer = gzipBufferPool.Get().(*bytes.Buffer)
-	// gobBuffer.Reset()
-	// gzipBuffer.Reset()
-
-	// defer func() {
-	// 	gobBufferPool.Put(gobBuffer)
-	// 	gzipBufferPool.Put(gzipBuffer)
-	// }()
 	gobBuffer := new(bytes.Buffer)
-	gzipBuffer := new(bytes.Buffer)
 
 	enc := gob.NewEncoder(gobBuffer)
 	enc.Encode(m)
 
-	compressor := gzip.NewWriter(gzipBuffer)
-	_, err := compressor.Write(gobBuffer.Bytes())
-	if err != nil {
-		return nil, 0, err
-	}
-	compressor.Close()
-
-	return gzipBuffer.Bytes(), gzipBuffer.Len(), nil
+	return gobBuffer.Bytes(), gobBuffer.Len(), nil
 }
 
 func deserializeMessage(b []byte) (*Message, error) {
 	// for debugging purposes use json encoding instead of gob+gzip
 
-	var gobBuffer bytes.Buffer
-	var gzipBuffer bytes.Buffer
+	gobBuffer := bytes.NewBuffer(b)
 
-	gzipBuffer.Write(b)
-	decompressor, err := gzip.NewReader(&gzipBuffer)
-	if err != nil {
-		return nil, err
-	}
-	_, err = gobBuffer.ReadFrom(decompressor)
-	if err != nil {
-		return nil, err
-	}
-	decompressor.Close()
-
-	dec := gob.NewDecoder(&gobBuffer)
+	dec := gob.NewDecoder(gobBuffer)
 	var m Message
-	err = dec.Decode(&m)
+	err := dec.Decode(&m)
 	if err != nil {
 		return nil, err
 	}

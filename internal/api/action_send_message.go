@@ -3,10 +3,8 @@ package api
 import (
 	"crypto/md5"
 	"encoding/base64"
-	"encoding/xml"
 	"errors"
 	"fmt"
-	"log"
 	"net/url"
 	"strconv"
 	"strings"
@@ -97,6 +95,8 @@ func parseSendMessageInput(form FormValues) (*SendMessageInput, error) {
 func (appCtx *AppContext) SendMessage(ctx *fasthttp.RequestCtx) {
 	sendMessageInput, _ := parseSendMessageInput(ctx.UserValue("body").(FormValues))
 
+	x := StreamWriter{ctx}
+
 	var queue *storage.Queue
 	var err error
 
@@ -111,10 +111,8 @@ func (appCtx *AppContext) SendMessage(ctx *fasthttp.RequestCtx) {
 	}
 
 	if err != nil {
-		log.Println(err)
-		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		ctx.SetBody(resp)
+		appCtx.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("UnknowError", "TODO !implement later.", ""))
 		return
 	}
 
@@ -127,15 +125,20 @@ func (appCtx *AppContext) SendMessage(ctx *fasthttp.RequestCtx) {
 	}
 
 	if err = queue.Push(message); err != nil {
-		log.Println(err)
-		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		ctx.SetBody(resp)
+		appCtx.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("UnknowError", "TODO !implement later.", ""))
 		return
 	}
 
-	resp := toSendMessageResponse(sendMessageInput.MessageBody)
-	ctx.SetBody(resp)
+	val := &SendMessageResult{
+		MD5OfMessageBody:             fmt.Sprintf("%x", md5.Sum([]byte(sendMessageInput.MessageBody))),
+		MD5OfMessageAttributes:       "3ae8f24a165a8cedc005670c81a27295",
+		MD5OfMessageSystemAttributes: "3ae8f24a165a8cedc005670c81a27295",
+		MessageId:                    utils.GenerateUUIDLikeId(),
+		RequestId:                    utils.GenerateUUIDLikeId(),
+	}
+
+	appCtx.templates.ExecuteTemplate(x, "send_message.tpl", val)
 }
 
 type SendMessageResult struct {
@@ -143,27 +146,5 @@ type SendMessageResult struct {
 	MD5OfMessageBody             string
 	MD5OfMessageAttributes       string
 	MD5OfMessageSystemAttributes string
-}
-
-type SendMessageResponse struct {
-	XMLName           xml.Name          `xml:"http://queue.amazonaws.com/doc/2012-11-05/ CreateQueueResponse"`
-	SendMessageResult SendMessageResult `xml:"SendMessageResult"`
-	ResponseMetadata  ResponseMetadata  `xml:"ResponseMetadata"`
-}
-
-func toSendMessageResponse(body string) []byte {
-	resp := SendMessageResponse{
-		SendMessageResult: SendMessageResult{
-			MD5OfMessageBody:             fmt.Sprintf("%x", md5.Sum([]byte(body))),
-			MD5OfMessageAttributes:       "3ae8f24a165a8cedc005670c81a27295",
-			MD5OfMessageSystemAttributes: "3ae8f24a165a8cedc005670c81a27295",
-			MessageId:                    utils.GenerateUUIDLikeId(),
-		},
-		ResponseMetadata: NewResponseMetadata(),
-	}
-
-	response, _ := xml.Marshal(resp)
-	response = append([]byte("<?xml version=\"1.0\"?>"), response...)
-
-	return response
+	RequestId                    string
 }

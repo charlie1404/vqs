@@ -1,8 +1,9 @@
 package api
 
 import (
-	"encoding/xml"
+	"crypto/md5"
 	"errors"
+	"fmt"
 	"log"
 	"net/url"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/charlie1404/vqs/internal/app_errors"
 	"github.com/charlie1404/vqs/internal/o11y/logs"
 	"github.com/charlie1404/vqs/internal/storage"
+	"github.com/charlie1404/vqs/internal/utils"
 )
 
 type ReceiveMessageInput struct {
@@ -43,6 +45,9 @@ func parseReceiveMessageInput(form FormValues) (*ReceiveMessageInput, error) {
 
 func (appCtx *AppContext) ReceiveMessage(ctx *fasthttp.RequestCtx) {
 	receiveMessageInput, _ := parseReceiveMessageInput(ctx.UserValue("body").(FormValues))
+
+	x := StreamWriter{ctx}
+
 	var queue *storage.Queue
 	var err error
 
@@ -56,55 +61,45 @@ func (appCtx *AppContext) ReceiveMessage(ctx *fasthttp.RequestCtx) {
 	}
 
 	if err != nil {
-		log.Println(err)
-		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		ctx.SetBody(resp)
+		appCtx.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("UnknowError", "TODO !implement later.", ""))
 		return
 	}
 
 	msg, err := queue.Pop()
 	if err != nil {
-		resp := toXMLErrorResponse("UnknowError", "TODO !implement later.", "")
+		log.Println(err)
 		ctx.SetStatusCode(fasthttp.StatusInternalServerError)
-		ctx.SetBody(resp)
+		appCtx.templates.ExecuteTemplate(x, "error.tpl", NewVQSError("UnknowError", "TODO !implement later.", ""))
 		return
 	}
 
-	resp := toReceiveMessageResponse(msg)
-	ctx.SetBody(resp)
+	if msg == nil { // TODO: remove me
+		msg = &storage.Message{
+			Id:   "todo1234567890asdfghjkl",
+			Body: "todo1234567890asdfghjkl",
+		}
+	}
+
+	val := &ReceiveMessage{
+		MessageId:              msg.Id,
+		Body:                   msg.Body,
+		ReceiptHandle:          "todo234567890sdertyuiop",
+		MD5OfBody:              fmt.Sprintf("%x", md5.Sum([]byte(msg.Body))),
+		MD5OfMessageAttributes: fmt.Sprintf("%x", md5.Sum([]byte(""))),
+		RequestId:              utils.GenerateUUIDLikeId(),
+	}
+
+	appCtx.templates.ExecuteTemplate(x, "receive_message.tpl", val)
 }
 
-type Message struct {
+type ReceiveMessage struct {
 	MessageId              string
 	ReceiptHandle          string
 	Body                   string
 	MD5OfBody              string
 	MD5OfMessageAttributes string
+	RequestId              string
 	// Attributes   []Attribute
 	// MessageAttributes []MessageAttribute
-}
-
-type ReceiveMessageResult struct {
-	Message []Message
-}
-
-type ReceiveMessageResponse struct {
-	XMLName              xml.Name             `xml:"http://queue.amazonaws.com/doc/2012-11-05/ CreateQueueResponse"`
-	ReceiveMessageResult ReceiveMessageResult `xml:"ReceiveMessageResult"`
-	ResponseMetadata     ResponseMetadata     `xml:"ResponseMetadata"`
-}
-
-func toReceiveMessageResponse(msg *storage.Message) []byte {
-	resp := ReceiveMessageResponse{
-		ReceiveMessageResult: ReceiveMessageResult{
-			Message: []Message{}, // todo
-		},
-		ResponseMetadata: NewResponseMetadata(),
-	}
-
-	response, _ := xml.Marshal(resp)
-	response = append([]byte("<?xml version=\"1.0\"?>"), response...)
-
-	return response
 }
